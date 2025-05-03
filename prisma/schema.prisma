@@ -1,0 +1,189 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  PASTOR
+  ADMIN
+  LEADER
+  MEMBER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  imagePublicId String?   // For Cloudinary image management
+  role          UserRole  @default(MEMBER)
+  bio           String?   @db.Text
+  phone         String?
+  address       String?
+  gender        String?
+  dateOfBirth   DateTime?
+  occupation    String?
+  maritalStatus String?
+  anniversary   DateTime?
+  joinedChurchDate DateTime?
+  emergencyContact String?
+  
+  // User settings and preferences
+  notificationPrefs Json?    // Store notification preferences as JSON
+  theme         String?      // User UI theme preference
+  privacySettings Json?      // Privacy settings as JSON
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relationships
+  departments     Department[] @relation("DepartmentMembers")
+  ledDepartments  Department[] @relation("DepartmentLeader")
+  sermons        Sermon[]
+  devotionals    Devotional[]
+  announcements  Announcement[]
+  donations      Donation[]
+  attendance     Attendance[]
+  assignments    Assignment[]
+  chats         Chat[]
+  notifications  Notification[]
+  verificationTokens VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expires   DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expires   DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  members     User[]   @relation("DepartmentMembers")
+  leader      User     @relation("DepartmentLeader", fields: [leaderId], references: [id])
+  leaderId    String
+}
+
+model Sermon {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  video_url   String[] @default([])
+  audio_url   String[] @default([])
+  thumbnail   String?
+  duration    String?
+  series      String?
+  scripture   String?
+  tags        String[] @default([])
+  featured    Boolean  @default(false)
+  preacher    User     @relation(fields: [preacherId], references: [id])
+  preacherId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Full-text search fields
+  searchVector String?
+
+  @@index([title])
+  @@index([series])
+  @@index([scripture])
+  @@index([preacherId])
+}
+
+model Devotional {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  amount      Float
+  type        String   // TITHE, OFFERING, or DONATION
+  donor       User     @relation(fields: [donorId], references: [id])
+  donorId     String
+  status      String   // PENDING, COMPLETED, FAILED
+  paymentRef  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  event     String
+  date      DateTime
+  createdAt DateTime @default(now())
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  assignee    User     @relation(fields: [assigneeId], references: [id])
+  assigneeId  String
+  status      String   // PENDING, IN_PROGRESS, COMPLETED
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  content   String
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  String
+  receiver  String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
