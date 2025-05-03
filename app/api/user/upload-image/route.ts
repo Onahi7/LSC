@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     
-    if (!session?.user) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Get the current user with their imagePublicId
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { imagePublicId: true }
-    });
+    }    // Get the current user with their imagePublicId using raw query
+    const userData = await prisma.$queryRaw`
+      SELECT "imagePublicId" 
+      FROM "User" 
+      WHERE id = ${token.id}
+    `;
+    
+    const user = Array.isArray(userData) ? userData[0] : null;
 
     if (!user) {
       return NextResponse.json(
@@ -69,16 +70,14 @@ export async function POST(request: NextRequest) {
     const { url, public_id } = await uploadToCloudinary(
       base64String,
       "church-profiles" // Folder name in Cloudinary
-    );
-
-    // Update user profile with new image
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        image: url,
-        imagePublicId: public_id
-      }
-    });
+    );    // Update user profile with new image using raw query
+    await prisma.$executeRaw`
+      UPDATE "User"
+      SET 
+        "image" = ${url},
+        "imagePublicId" = ${public_id}
+      WHERE id = ${token.id}
+    `;
 
     return NextResponse.json({ url, publicId: public_id });
   } catch (error) {

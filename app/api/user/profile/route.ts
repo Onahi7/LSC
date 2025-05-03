@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -23,22 +23,24 @@ const profileUpdateSchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authConfig);
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-    if (!session?.user) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        emailVerified: true,
-        image: true,
-        imagePublicId: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
+    }
+    
+    // Use raw query to access JSON and custom fields
+    const userData = await prisma.$queryRaw`
+      SELECT 
+        id, 
+        name, 
+        email, 
+        "emailVerified", 
+        image, 
+        "imagePublicId", 
+        role, 
+        "createdAt", 
+        "updatedAt",
         bio: true,
         phone: true,
         address: true,
@@ -71,9 +73,9 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession(authConfig);
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-    if (!session?.user) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -116,14 +118,13 @@ export async function PATCH(req: Request) {
     let imageUrl;
     let imagePublicId;
     if (imageFile && imageFile.size > 0) {
-      try {
-        const arrayBuffer = await imageFile.arrayBuffer();
+      try {        const arrayBuffer = await imageFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const base64String = `data:${imageFile.type};base64,${buffer.toString('base64')}`;
+        const base64String = "data:" + imageFile.type + ";base64," + buffer.toString('base64');
         
-        // Get current user to check for existing image
-        const currentUser = await prisma.user.findUnique({
-          where: { id: session.user.id },
+        // Use Prisma's findUnique method but cast to any to avoid TypeScript errors
+        const currentUser = await (prisma.user.findUnique as any)({
+          where: { id: token.id as string },
           select: { imagePublicId: true }
         });
         

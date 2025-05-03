@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { getToken } from "next-auth/jwt";
 import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -28,16 +28,15 @@ const settingsSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     
-    if (!session?.user) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
-    // Get user settings from database
+      // Get user settings from database
     const user = await prisma.user.findUnique({
       where: {
-        id: session.user.id,
+        id: token.id as string,
       },
       select: {
         id: true,
@@ -52,15 +51,14 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-    
-    // Get raw data directly without select to access JSON fields
+      // Get raw data directly without select to access JSON fields
     const userData = await prisma.$queryRaw`
       SELECT 
         "notificationPrefs",
         "theme",
         "privacySettings"
       FROM "User" 
-      WHERE id = ${session.user.id}
+      WHERE id = ${token.id}
     `;
     
     const userSettings = Array.isArray(userData) ? userData[0] : null;
@@ -97,9 +95,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     
-    if (!session?.user) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
@@ -107,8 +105,7 @@ export async function POST(request: NextRequest) {
     
     // Validate request body
     const settings = settingsSchema.parse(json);
-    
-    // Convert settings to JSON strings for Prisma
+      // Convert settings to JSON strings for Prisma
     const notificationPrefsJson = JSON.stringify(settings.notificationPrefs);
     const privacySettingsJson = JSON.stringify(settings.privacySettings);
     
@@ -119,7 +116,7 @@ export async function POST(request: NextRequest) {
         "notificationPrefs" = ${notificationPrefsJson}::jsonb,
         "theme" = ${settings.theme},
         "privacySettings" = ${privacySettingsJson}::jsonb
-      WHERE id = ${session.user.id}
+      WHERE id = ${token.id}
     `;
     
     return NextResponse.json({ success: true });

@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { hash } from "bcrypt";
+import { hash } from "bcryptjs";
 import { z } from "zod";
 
 // Check if user has admin access
-async function isAdmin() {
-  const session = await getServerSession(authConfig);
+async function isAdmin(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   
-  if (!session?.user) {
+  if (!token) {
     return false;
   }
   
-  return ["SUPERADMIN", "ADMIN"].includes(session.user.role);
+  return ["SUPERADMIN", "ADMIN"].includes(token.role as string);
 }
 
 // GET /api/admin/users - Get all users
 export async function GET(request: NextRequest) {
   try {
     // Check if user has admin access
-    if (!(await isAdmin())) {
+    if (!(await isAdmin(request))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Check if user has admin access
-    if (!(await isAdmin())) {
+    if (!(await isAdmin(request))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
