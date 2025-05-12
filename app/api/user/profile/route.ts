@@ -27,20 +27,18 @@ export async function GET(req: Request) {
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    
-    // Use raw query to access JSON and custom fields
-    const userData = await prisma.$queryRaw`
-      SELECT 
-        id, 
-        name, 
-        email, 
-        "emailVerified", 
-        image, 
-        "imagePublicId", 
-        role, 
-        "createdAt", 
-        "updatedAt",
+    }    // Get user profile with all fields
+    const user = await prisma.user.findUnique({
+      where: { id: token.id },      select: {
+        id: true,
+        name: true,
+        email: true,
+        emailVerified: true,
+        image: true,
+        imagePublicId: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
         bio: true,
         phone: true,
         address: true,
@@ -113,12 +111,14 @@ export async function PATCH(req: Request) {
       ...validatedData,
       dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : undefined,
       anniversary: validatedData.anniversary ? new Date(validatedData.anniversary) : undefined,
-      joinedChurchDate: validatedData.joinedChurchDate ? new Date(validatedData.joinedChurchDate) : undefined,
-    };    // Handle image upload if present
+      joinedChurchDate: validatedData.joinedChurchDate ? new Date(validatedData.joinedChurchDate) : undefined,    };
+
+    // Handle image upload if present
     let imageUrl;
     let imagePublicId;
     if (imageFile && imageFile.size > 0) {
-      try {        const arrayBuffer = await imageFile.arrayBuffer();
+      try {
+        const arrayBuffer = await imageFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64String = "data:" + imageFile.type + ";base64," + buffer.toString('base64');
         
@@ -146,13 +146,12 @@ export async function PATCH(req: Request) {
         return NextResponse.json(
           { error: "Failed to upload profile image" },
           { status: 500 }
-        );
-      }
+        );      }
     }
 
     // Update the user profile
     const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: token.id },
       data: {
         ...processedData,
         ...(imageUrl && { image: imageUrl }),

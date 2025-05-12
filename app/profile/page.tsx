@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Upload, User, Mail, Phone, MapPin, CalendarClock, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { UserSettings } from "@/components/user-settings";
+import UserSettings from "@/components/user-settings";
 import { ProfileImageUpload } from "@/components/profile-image-upload";
 
 const profileFormSchema = z.object({

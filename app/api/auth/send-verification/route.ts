@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/app/api/auth/[...nextauth]/route";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { generateVerificationToken } from "@/lib/token";
 import { sendEmail, createVerificationHtml } from "@/lib/mail";
@@ -8,16 +7,16 @@ import { z } from "zod";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig);
+    const authToken = await getToken({ req: request });
     
-    if (!session?.user) {
+    if (!authToken?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Find the user from the session
+    // Find the user from the auth token
     const user = await prisma.user.findUnique({
       where: {
-        id: session.user.id,
+        id: authToken.id,
       },
     });
     

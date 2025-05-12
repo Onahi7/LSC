@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Calendar, PlayCircle, Headphones } from "lucide-react"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
-  ChevronLeft,
-  Play,
+import{ 
+ChevronLeft,Play,
   Pause,
   Volume2,
   VolumeX,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import Link from "next/link"
 import IntuitiveHeader from "../../components/IntuitiveHeader"

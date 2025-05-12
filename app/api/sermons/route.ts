@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getToken } from "next-auth/jwt"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { authConfig } from "../../auth/[...nextauth]/route"
+import { Prisma } from "@prisma/client"
 
 const sermonSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -13,9 +13,9 @@ const sermonSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authConfig)
+    const token = await getToken({ req })
     
-    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.user.role)) {
+    if (!token?.id || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(token.role as string)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const sermon = await prisma.sermon.create({
       data: {
         ...validatedData,
-        preacherId: session.user.id,
+        preacherId: token.id,
       },
     })
 
@@ -44,22 +44,22 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
     const search = searchParams.get("search")
-
-    const skip = (page - 1) * limit    const series = searchParams.get("series")
+    const series = searchParams.get("series")
     const speaker = searchParams.get("speaker")
     const tag = searchParams.get("tag")
     const featured = searchParams.get("featured") === "true"
+    
+    const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Prisma.SermonWhereInput = {
       AND: [
         // Search filter
-        search ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { content: { contains: search, mode: "insensitive" } },
-            { series: { contains: search, mode: "insensitive" } },
-            { scripture: { contains: search, mode: "insensitive" } },
-          ]
+        search ? {          OR: [
+            { title: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { content: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { series: { contains: search, mode: Prisma.QueryMode.insensitive } },
+            { scripture: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          ],
         } : {},
         // Series filter
         series ? { series } : {},
@@ -69,12 +69,8 @@ export async function GET(req: Request) {
         tag ? { tags: { has: tag } } : {},
         // Featured filter
         featured ? { featured: true } : {},
-      ]
+      ].filter(Boolean), // Remove empty conditions
     }
-        { title: { contains: search, mode: "insensitive" } },
-        { content: { contains: search, mode: "insensitive" } },
-      ],
-    } : {}
 
     const [sermons, total] = await Promise.all([
       prisma.sermon.findMany({

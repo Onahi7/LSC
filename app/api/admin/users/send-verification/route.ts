@@ -4,7 +4,7 @@ import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { sendVerificationEmail } from "../../../lib/email";
+import { sendVerificationEmail } from "@/lib/email";
 
 // Check if user has admin access
 async function isAdmin(req: NextRequest) {

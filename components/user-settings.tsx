@@ -40,6 +40,10 @@ interface UserSettings {
   privacySettings: PrivacySettings;
 }
 
+interface UserSettingsProps {
+  initialSettings?: UserSettings;
+}
+
 const defaultNotificationPrefs: NotificationPreferences = {
   email: {
     announcements: true,
@@ -63,7 +67,7 @@ const defaultPrivacySettings: PrivacySettings = {
   showBirthday: false,
 };
 
-export default function UserSettingsPage() {
+export default function UserSettings({ initialSettings }: UserSettingsProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);

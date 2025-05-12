@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import getServerSession from "next-auth";
-import type { Session } from "next-auth";
-import { authConfig } from "@/app/api/auth/[...nextauth]/route";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -9,17 +7,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = (await getServerSession(authConfig)) as Session | null;
+    const token = await getToken({ req: request });
     
-    if (!session?.user) {
+    if (!token?.id || !token?.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const { id } = params;
+    const userId = params.id;
     
     // Get the user with privacy settings
     const user = await prisma.user.findUnique({
-      where: { id },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -54,12 +52,12 @@ export async function GET(
     const privacySettings = user.privacySettings as any;
     
     // If current user is admin or superadmin, they can see all details
-    if (["SUPERADMIN", "ADMIN"].includes(session.user.role)) {
+    if (["SUPERADMIN", "ADMIN"].includes(token.role)) {
       return NextResponse.json(user);
     }
     
     // If viewing own profile, return all details
-    if (id === session.user.id) {
+    if (userId === token.id) {
       return NextResponse.json(user);
     }
     

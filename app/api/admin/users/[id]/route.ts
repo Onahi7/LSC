@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { hash } from "bcrypt";
+import { hash } from "bcryptjs";
 import { z } from "zod";
 
 // Check if user has admin access

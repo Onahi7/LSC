@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import auth from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { authConfig } from "@/app/api/auth/[...nextauth]/route"
@@ -52,9 +52,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await auth()
     
-    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -73,7 +73,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Sermon not found" }, { status: 404 })
     }
 
-    if (session.user.role !== "SUPERADMIN" && sermon.preacherId !== session.user.id) {
+    if (session.role !== "SUPERADMIN" && sermon.preacherId !== session.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -86,7 +86,7 @@ export async function PATCH(
       await Promise.all(
         removedVideos.map(url => {
           const publicId = url.split('/').pop()?.split('.')[0]
-          if (publicId) return deleteFromCloudinary(publicId, 'video')
+          if (publicId) return deleteFromCloudinary(publicId)
         })
       )
     }
@@ -96,24 +96,27 @@ export async function PATCH(
       await Promise.all(
         removedAudios.map(url => {
           const publicId = url.split('/').pop()?.split('.')[0]
-          if (publicId) return deleteFromCloudinary(publicId, 'audio')
+          if (publicId) return deleteFromCloudinary(publicId)
         })
       )
     }
 
-    const sermon = await prisma.sermon.update({
+
+    const updatedSermon = await prisma.sermon.update({
       where: {
         id: params.id,
       },
-      data: validatedData,
+      data: {
+        ...body,
+      },
     })
 
-    return NextResponse.json(sermon)
+    return NextResponse.json(updatedSermon)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 })
-    }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
   }
 }
 
@@ -122,9 +125,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authConfig)
+    const session = await auth()
     
-    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
