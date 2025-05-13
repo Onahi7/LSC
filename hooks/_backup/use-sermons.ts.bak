@@ -51,9 +51,7 @@ export function useSermons({
     const fetchSermons = async () => {
       try {
         setIsLoading(true)
-        setError(null)
-
-        const params = new URLSearchParams({
+        setError(null)        const params = new URLSearchParams({
           page: page.toString(),
           limit: limit.toString(),
         })

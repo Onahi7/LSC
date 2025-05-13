@@ -14,20 +14,40 @@ export const uploadToNeonStorage = async (
   folder: string = "general"
 ): Promise<string> => {
   try {
-    const fileExtension = file.name.split(".").pop()
-    const fileName = `${folder}/${uuidv4()}.${fileExtension}`
-    const fileBuffer = await file.arrayBuffer()
+    // Get pre-signed URL for direct upload
+    const response = await fetch('/api/sermons/media', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        folder,
+      }),
+    })
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: process.env.AWS_BUCKET_NAME!,
-        Key: fileName,
-        Body: Buffer.from(fileBuffer),
-        ContentType: file.type,
-      })
-    )
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to get upload URL')
+    }
 
-    return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`
+    const { uploadUrl, fileUrl } = await response.json()
+
+    // Upload file directly to S3 using pre-signed URL
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type,
+      },
+      body: file,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file')
+    }
+
+    return fileUrl
   } catch (error) {
     console.error("Error uploading file:", error)
     throw new Error("Failed to upload file")

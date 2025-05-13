@@ -49,7 +49,11 @@ model User {
   ledDepartments  Department[] @relation("DepartmentLeader")
   sermons        Sermon[]
   devotionals    Devotional[]
+  reviewedDevotionals Devotional[] @relation("DevotionalReviewer")
+  devotionalHistories DevotionalHistory[]
   announcements  Announcement[]
+  reviewedAnnouncements Announcement[] @relation("AnnouncementReviewer")
+  announcementHistories AnnouncementHistory[]
   donations      Donation[]
   attendance     Attendance[]
   assignments    Assignment[]
@@ -119,21 +123,110 @@ model Sermon {
 model Devotional {
   id        String   @id @default(cuid())
   title     String
-  content   String
+  content   String   @db.Text
+  scripture String?
+  tags      String[] @default([])
+  image     String?
+  featured  Boolean  @default(false)
+  publishedAt DateTime?
+  status    String   @default("DRAFT") // DRAFT, REVIEW, SCHEDULED, PUBLISHED, ARCHIVED, REJECTED
+  reviewComment String? @db.Text
+  reviewedBy User?   @relation("DevotionalReviewer", fields: [reviewerId], references: [id])
+  reviewerId String?
+  reviewedAt DateTime?
+  version   Int      @default(1)
   author    User     @relation(fields: [authorId], references: [id])
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // Version history
+  history   DevotionalHistory[]
+  
+  // Full-text search field
+  searchVector String?
+
+  @@index([title])
+  @@index([scripture])
+  @@index([authorId])
+  @@index([publishedAt])
+  @@index([reviewerId])
 }
 
 model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  image       String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("DRAFT") // DRAFT, REVIEW, SCHEDULED, PUBLISHED, ARCHIVED, REJECTED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  targetGroups String[] @default([])
+  publishedAt DateTime?
+  reviewComment String? @db.Text
+  reviewedBy User?   @relation("AnnouncementReviewer", fields: [reviewerId], references: [id])
+  reviewerId String?
+  reviewedAt DateTime?
+  version    Int      @default(1)
+  author      User     @relation(fields: [authorId], references: [id])
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Version history
+  history    AnnouncementHistory[]
+
+  @@index([title])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([reviewerId])
+}
+
+// Content history models
+model DevotionalHistory {
+  id           String   @id @default(cuid())
+  devotionalId String
+  devotional   Devotional @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+  version      Int
+  title        String
+  content      String   @db.Text
+  scripture    String?
+  tags         String[] @default([])
+  image        String?
+  featured     Boolean  @default(false)
+  status       String
+  createdAt    DateTime @default(now())
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdById  String
+  
+  @@index([devotionalId])
+  @@index([version])
+  @@index([createdById])
+}
+
+model AnnouncementHistory {
+  id             String   @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  version        Int
+  title          String
+  content        String   @db.Text
+  image          String?
+  startDate      DateTime?
+  endDate        DateTime?
+  status         String
+  priority       String
+  targetGroups   String[] @default([])
+  createdAt      DateTime @default(now())
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdById    String
+  
+  @@index([announcementId])
+  @@index([version])
+  @@index([createdById])
 }
 
 model Donation {

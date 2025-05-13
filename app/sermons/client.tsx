@@ -5,12 +5,23 @@ import { Session } from "next-auth"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Play, Pause, Volume2, VolumeX, X, Share2, Download, ChevronRight, Calendar, Clock, User } from "lucide-react"
+import { Play, Pause, Volume2, VolumeX, X, Share2, Download, ChevronRight, Calendar, Clock, User, Plus, Loader2 } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/pagination"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
+import { SermonSearchFilters } from "@/components/SermonSearchFilters"
+import { useRouter } from "next/navigation"
 import {
   Select,
   SelectContent,
@@ -39,6 +50,9 @@ interface SermonsClientProps {
     page: number
     limit: number
   }
+  availableSeries: string[]
+  availableTags: string[]
+  availableSpeakers: string[]
   session: Session | null
 }
 
@@ -142,13 +156,12 @@ const SermonCard = ({ sermon, onSelect, onTagSelect }: SermonCardProps) => {
 export function SermonsClient({
   initialSermons,
   pagination,
+  availableSeries,
+  availableTags,
+  availableSpeakers,
   session,
 }: SermonsClientProps) {
-  const [searchQuery, setSearchQuery] = React.useState("")
-  const [selectedSpeaker, setSelectedSpeaker] = React.useState("all")
-  const [selectedSeries, setSelectedSeries] = React.useState("all")
-  const [selectedTag, setSelectedTag] = React.useState("all")
-  const [activeTab, setActiveTab] = React.useState("all")
+  const router = useRouter();
   const [filteredSermons, setFilteredSermons] = React.useState(initialSermons)
   const [selectedSermon, setSelectedSermon] = React.useState<Sermon | null>(null)
   const [isPlayerOpen, setIsPlayerOpen] = React.useState(false)
@@ -158,14 +171,6 @@ export function SermonsClient({
   const [isLoading, setIsLoading] = React.useState(false)
 
   const playerRef = React.useRef<HTMLDivElement>(null)
-  const searchInputRef = React.useRef<HTMLInputElement>(null)
-
-  // Get unique values for filters
-  const getSpeakers = () => 
-    Array.from(new Set(initialSermons.map(sermon => sermon.preacher.name))).sort()
-  
-  const getSeries = () =>
-    Array.from(new Set(initialSermons.map(sermon => sermon.series))).sort()
   
   const getTags = () =>
     Array.from(new Set(initialSermons.flatMap(sermon => sermon.tags))).sort()
@@ -183,40 +188,134 @@ export function SermonsClient({
     }
   }
 
-  // Handle changes based on filters
-  React.useEffect(() => {
-    const fetchSermons = async () => {
-      try {
-        setIsLoading(true)
-        const params = new URLSearchParams({
-          ...(searchQuery && { search: searchQuery }),
-          ...(selectedSpeaker !== "all" && { speaker: selectedSpeaker }),
-          ...(selectedSeries !== "all" && { series: selectedSeries }),
-          ...(selectedTag !== "all" && { tag: selectedTag }),
-          ...(activeTab === "featured" && { featured: "true" }),
-        })
+  // Handle filter changes
+  const handleFilter = async (filters: {
+    search: string
+    speaker: string
+    series: string
+    tag: string
+    featured: boolean
+  }) => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams({
+        ...(filters.search && { search: filters.search }),
+        ...(filters.speaker && { speaker: filters.speaker }),
+        ...(filters.series && { series: filters.series }),
+        ...(filters.tag && { tag: filters.tag }),
+        ...(filters.featured && { featured: "true" }),
+      })
 
-        const response = await fetch(`/api/sermons?${params}`)
-        if (!response.ok) throw new Error("Failed to fetch sermons")
+      const response = await fetch(`/api/sermons?${params}`)
+      if (!response.ok) throw new Error("Failed to fetch sermons")
 
-        const data = await response.json()
-        setFilteredSermons(data.sermons)
-      } catch (error) {
-        console.error("Error fetching sermons:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      const data = await response.json()
+      setFilteredSermons(data.sermons)
+    } catch (error) {
+      console.error("Error fetching sermons:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    const debounce = setTimeout(fetchSermons, 300)
-    return () => clearTimeout(debounce)
-  }, [searchQuery, selectedSpeaker, selectedSeries, selectedTag, activeTab])
-
+  }
   // Rest of your component code (player controls, rendering logic) goes here
   // ...
 
   return (
-    // Your JSX for rendering the sermons page
-    // ...
+    <div className="container mx-auto px-4 py-8">
+      {/* Admin actions */}
+      {session?.user && (
+        <div className="flex justify-end mb-6">
+          <Button asChild className="gap-1" variant="default">
+            <Link href="/sermons/new">
+              <Plus className="h-4 w-4" />
+              New Sermon
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {/* Search and filter section */}
+      <div className="mb-8">
+        <SermonSearchFilters
+          availableSeries={availableSeries}
+          availableTags={availableTags}
+          availableSpeakers={availableSpeakers}
+          onFilter={handleFilter}
+          className="w-full"
+        />
+      </div>
+
+      {/* Player */}
+      {isPlayerOpen && selectedSermon && (
+        <div
+          ref={playerRef}
+          className="bg-card rounded-lg p-4 shadow-lg mb-8 animate-in fade-in-0 slide-in-from-top-5 duration-300"
+        >
+          {/* Player content will go here */}
+        </div>
+      )}
+
+      {/* Sermon grid */}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filteredSermons.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredSermons.map((sermon) => (
+            <SermonCard
+              key={sermon.id}
+              sermon={sermon}
+              onSelect={handleSermonSelect}
+              onTagSelect={(tag) => {
+                handleFilter({
+                  search: "",
+                  speaker: "",
+                  series: "",
+                  tag: tag,
+                  featured: false
+                });
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No sermons found. Try adjusting your filters.</p>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination.total > pagination.limit && (
+        <div className="mt-8">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href={pagination.page > 1 ? `?page=${pagination.page - 1}` : "#"}
+                  className={pagination.page <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              {Array.from({ length: pagination.pages }).map((_, i) => (
+                <PaginationItem key={i}>
+                  <PaginationLink
+                    href={`?page=${i + 1}`}
+                    isActive={pagination.page === i + 1}
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href={pagination.page < pagination.pages ? `?page=${pagination.page + 1}` : "#"}
+                  className={pagination.page >= pagination.pages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+    </div>
   )
 }

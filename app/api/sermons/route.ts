@@ -90,12 +90,15 @@ export async function GET(req: Request) {
         },
       }),
       prisma.sermon.count({ where }),
-    ])
-
+    ]);
     return NextResponse.json({
       sermons,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      pagination: {
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        limit
+      }
     })
   } catch (error) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession as getSession } from "next-auth/next"
 import { authConfig } from "../[...nextauth]/route"
 import { getToken } from "next-auth/jwt"
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getServerSession(authConfig)
+export async function GET(req: NextRequest) {  try {
+    const session = await getSession(authConfig)
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
     
     if (!session) {

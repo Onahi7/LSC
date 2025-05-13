@@ -42,7 +42,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import IntuitiveHeader from "../components/IntuitiveHeader"
 import Footer from "../components/Footer"
 import { motion, AnimatePresence } from "framer-motion"
-
+import { SermonsClient } from "./client"
 import { useSermons } from "@/hooks/use-sermons"
 import { useSearchParams } from "next/navigation"
 
@@ -205,66 +205,87 @@ interface SermonsPageProps {
 }
 
 export default function SermonsPage() {
-  const session = useSession();
+  const { data: session } = useSession();
   const { toast } = useToast();
-  const playerRef = useRef<HTMLDivElement>(null);
   // Client-side search params
   const searchParams = useSearchParams();
-  
+
   // For pagination
   const page = Number(searchParams.get('page')) || 1;
-  
-  // Use the hook with sample data instead of fetching
-  // In a real application, you would use the actual useSermons hook
+  const search = searchParams.get('search') || "";
+  const speaker = searchParams.get('speaker') || "";
+  const seriesParam = searchParams.get('series') || "";
+  const tag = searchParams.get('tag') || "";
+  const featured = searchParams.get('featured') === "true";
+
+  // Use the real sermons hook for fetching data
   const {
-    sermons = sampleSermons,
-    total = sampleSermons.length,
+    sermons = [],
+    total = 0,
     isLoading = false,
     error = null,
-    pageCount = 1,
-  } = { sermons: sampleSermons }; // Using sample data for now
-  
-  // State for filters and search
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "");
-  const [selectedSpeaker, setSelectedSpeaker] = useState(searchParams.get('speaker') || "all");
-  const [selectedSeries, setSelectedSeries] = useState(searchParams.get('series') || "all");
-  const [selectedTag, setSelectedTag] = useState(searchParams.get('tag') || "all");
-  const [showFeatured, setShowFeatured] = useState(searchParams.get('featured') === "true");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
-  // State for audio player
-  const [selectedSermon, setSelectedSermon] = useState<typeof sampleSermons[0] | null>(null);
-  const [isPlayerOpen, setIsPlayerOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(80);
-  const [isMuted, setIsMuted] = useState(false);
-  
-  // Refs
-  const searchInputRef = useRef<HTMLInputElement>(null);
+    availableSeries = [],
+    availableTags = [],
+    availableSpeakers = []
+  } = useSermons({
+    page,
+    limit: 9,
+    search,
+    speaker,
+    series: seriesParam,
+    tag,
+    featured
+  });
+
+  // State for filters and player
+  const [selectedSpeaker, setSelectedSpeaker] = useState<string>("");
+  const [selectedSeries, setSelectedSeries] = useState<string>("");
+  const [selectedTag, setSelectedTag] = useState<string>("");
+  const [showFeatured, setShowFeatured] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+  const [isPlayerOpen, setIsPlayerOpen] = useState<boolean>(false);
+  const [selectedSermon, setSelectedSermon] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(total / 9);
+  const pageCount = totalPages;
+
+  // Fix for availableSpeakers: if array of string, use as is; if array of objects, map to .name
+  const speakersList = Array.isArray(availableSpeakers) && typeof availableSpeakers[0] === "object"
+    ? availableSpeakers.map((s: any) => s.name)
+    : availableSpeakers;
+
+  // Error toast
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive"
+      });
+    }
+  }, [error, toast]);
   
-  // Filter sermons based on search and filters
+  // Filter search input debounce
+  const searchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputRef.current) {
         setSearchQuery(searchInputRef.current.value);
       }
     }, 300);
-    
     return () => clearTimeout(timer);
   }, []);
   
-  // Apply filters when they change and fetch from API
-  useEffect(() => {
-    // This would be the place to call the useSermons hook with the correct parameters
-    // and fetch the filtered data from the API
-    // For now, we're using the sample data
-  }, [selectedSpeaker, selectedSeries, selectedTag, showFeatured, searchQuery, page]);
-  
   // Handle sermon playback
-  const handlePlaySermon = (sermon: typeof sampleSermons[0]) => {
+  const handlePlaySermon = (sermon: Sermon) => {
     setSelectedSermon(sermon);
     setIsPlayerOpen(true);
     setIsPlaying(true);
@@ -318,19 +339,19 @@ export default function SermonsPage() {
   
   // Filter sermons based on selected filters
   const filteredSermons = sermons.filter((sermon) => {
-    const matchSpeaker = !selectedSpeaker || sermon.speaker === selectedSpeaker;
-    const matchSeries = !selectedSeries || sermon.series === selectedSeries;
-    const matchTag = !selectedTag || sermon.tags.includes(selectedTag);
+    const matchSpeaker = !selectedSpeaker || selectedSpeaker === "all" || sermon.preacher?.name === selectedSpeaker;
+    const matchSeries = !selectedSeries || selectedSeries === "all" || sermon.series === selectedSeries;
+    const matchTag = !selectedTag || selectedTag === "all" || sermon.tags.includes(selectedTag);
     const matchFeatured = !showFeatured || sermon.featured;
-    
+
     const query = searchQuery.toLowerCase();
     const matchSearch = !query || 
-          sermon.title.toLowerCase().includes(query) ||
-          sermon.speaker.toLowerCase().includes(query) || 
-          sermon.series.toLowerCase().includes(query) ||
-          sermon.scripture.toLowerCase().includes(query) ||
-          sermon.tags.some(tag => tag.toLowerCase().includes(query));
-    
+      sermon.title.toLowerCase().includes(query) ||
+      (sermon.preacher?.name && sermon.preacher.name.toLowerCase().includes(query)) ||
+      (sermon.series && sermon.series.toLowerCase().includes(query)) ||
+      (sermon.scripture && sermon.scripture.toLowerCase().includes(query)) ||
+      sermon.tags.some(tag => tag.toLowerCase().includes(query));
+
     return matchSpeaker && matchSeries && matchTag && matchFeatured && matchSearch;
   });
 
@@ -371,7 +392,7 @@ export default function SermonsPage() {
                   <Filter className="mr-2 h-4 w-4" />
                   Filter
                 </Button>
-                {session.status === "authenticated" && (
+                {session?.user && (
                   <Button asChild>
                     <Link href="/sermons/new">
                       <Plus className="mr-2 h-4 w-4" />
@@ -697,10 +718,10 @@ export default function SermonsPage() {
                         </div>
                         
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
-                            <span>{sermon.speaker}</span>
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3.5 w-3.5" />
+                          <span>{sermon.preacher?.name || "Unknown"}</span>
+                        </div>
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
                             <span>{formatDate(sermon.date)}</span>
@@ -715,7 +736,7 @@ export default function SermonsPage() {
                           </div>
                         </div>
                         
-                        <p className="line-clamp-2 text-muted-foreground">{sermon.description}</p>
+                        <p className="line-clamp-2 text-muted-foreground">{sermon.description || ''}</p>
                         
                         <div className="flex flex-wrap gap-2">
                           {sermon.tags.map((tag) => (
@@ -736,7 +757,7 @@ export default function SermonsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getSeries().map((series) => {
                     const seriesSermons = sermons.filter((sermon) => sermon.series === series);
-                    const latestSermon = seriesSermons.sort(
+                    const latestSermon = [...seriesSermons].sort(
                       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
                     )[0];
                     
@@ -833,7 +854,7 @@ export default function SermonsPage() {
               
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm truncate">{selectedSermon.title}</h4>
-                <p className="text-xs text-muted-foreground truncate">{selectedSermon.speaker}</p>
+                <p className="text-xs text-muted-foreground truncate">{selectedSermon.preacher?.name || "Unknown"}</p>
               </div>
               
               <Button variant="ghost" size="icon" onClick={() => setIsPlayerOpen(false)}>
