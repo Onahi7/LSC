@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 // Check if user has admin access
 async function isAdmin() {
-  const session = await getServerSession(authConfig);
+  const session = await auth();
   
   if (!session?.user) {
     return false;
@@ -16,8 +15,8 @@ async function isAdmin() {
 }
 
 // Helper to check if the current user can manage the given role
-async function canManageRole(role: string) {
-  const session = await getServerSession(authConfig);
+export async function canManageRole(role: string) {
+  const session = await auth();
   
   if (session?.user.role === "SUPERADMIN") {
     return true;
@@ -72,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     });
     
     // Filter out users the current user can't manage
-    const session = await getServerSession(authConfig);
+    const session = await auth();
     const idsToUpdate = [];
     
     for (const user of users) {
@@ -165,7 +164,7 @@ export async function DELETE(request: NextRequest) {
     });
     
     // Filter out users the current user can't manage
-    const session = await getServerSession(authConfig);
+    const session = await auth();
     const idsToDelete = [];
     
     for (const user of users) {

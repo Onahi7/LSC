@@ -1,44 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authConfig } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-import { hash } from "bcryptjs";
 import { z } from "zod";
+import { canManageRole } from "../bulk/route";
+import { hash } from "bcryptjs";
 
-// Check if user has admin access
-async function isAdmin() {
-  const session = await getServerSession(authConfig);
-  
-  if (!session?.user) {
-    return false;
-  }
-  
-  return ["SUPERADMIN", "ADMIN"].includes(session.user.role);
-}
-
-// Helper to check if the current user can manage the target user role
-async function canManageRole(targetRole: string) {
-  const session = await getServerSession(authConfig);
-  
-  if (session?.user.role === "SUPERADMIN") {
-    return true;
-  }
-  
-  if (session?.user.role === "ADMIN" && targetRole !== "SUPERADMIN") {
-    return true;
-  }
-  
-  return false;
-}
-
-// GET /api/admin/users/[id] - Get specific user
+// Handlers below will check for admin access
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if user has admin access
-    if (!(await isAdmin())) {
+    const session = await auth();
+    
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
@@ -92,8 +67,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if user has admin access
-    if (!(await isAdmin())) {
+    const session = await auth();
+    
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
@@ -204,13 +180,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if user has admin access
-    if (!(await isAdmin())) {
+    const session = await auth();
+    
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
     const { id } = params;
-    const session = await getServerSession(authConfig);
     
     // Get target user to check their role
     const targetUser = await prisma.user.findUnique({

@@ -38,6 +38,7 @@ export const authConfig: NextAuthConfig = {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
+  secret: process.env.NEXTAUTH_SECRET || "your-default-secret-please-change-in-production",
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -129,5 +130,9 @@ export const authConfig: NextAuthConfig = {
   },
 };
 
-const handler = NextAuth(authConfig);
-export { handler as GET, handler as POST };
+// Initialize NextAuth and extract both route handlers and the auth helper
+const { handlers, auth } = NextAuth(authConfig);
+export const GET = handlers.GET;
+export const POST = handlers.POST;
+// Export auth() for session retrieval in other route handlers or server components
+export { auth };

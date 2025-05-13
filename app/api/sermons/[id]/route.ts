@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import auth from "next-auth"
+import { auth } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { authConfig } from "@/app/api/auth/[...nextauth]/route"
@@ -52,9 +52,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    
-    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.role)) {
+    const session = await auth();
+    if (!session || !session.user || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -73,7 +72,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Sermon not found" }, { status: 404 })
     }
 
-    if (session.role !== "SUPERADMIN" && sermon.preacherId !== session.id) {
+    if (session.user.role !== "SUPERADMIN" && sermon.preacherId !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -125,9 +124,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    
-    if (!session || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.role)) {
+    const session = await auth();
+    if (!session || !session.user || !["SUPERADMIN", "PASTOR", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

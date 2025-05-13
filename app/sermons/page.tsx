@@ -44,6 +44,7 @@ import Footer from "../components/Footer"
 import { motion, AnimatePresence } from "framer-motion"
 
 import { useSermons } from "@/hooks/use-sermons"
+import { useSearchParams } from "next/navigation"
 
 // Sample data - this would normally come from the API but is provided for development
 const sampleSermons = [
@@ -203,13 +204,15 @@ interface SermonsPageProps {
   }
 }
 
-export default function SermonsPage({ searchParams }: SermonsPageProps) {
+export default function SermonsPage() {
   const session = useSession();
   const { toast } = useToast();
   const playerRef = useRef<HTMLDivElement>(null);
+  // Client-side search params
+  const searchParams = useSearchParams();
   
   // For pagination
-  const page = Number(searchParams.page) || 1;
+  const page = Number(searchParams.get('page')) || 1;
   
   // Use the hook with sample data instead of fetching
   // In a real application, you would use the actual useSermons hook
@@ -222,11 +225,11 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
   } = { sermons: sampleSermons }; // Using sample data for now
   
   // State for filters and search
-  const [searchQuery, setSearchQuery] = useState(searchParams.search || "");
-  const [selectedSpeaker, setSelectedSpeaker] = useState(searchParams.speaker || "");
-  const [selectedSeries, setSelectedSeries] = useState(searchParams.series || "");
-  const [selectedTag, setSelectedTag] = useState(searchParams.tag || "");
-  const [showFeatured, setShowFeatured] = useState(searchParams.featured === "true");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || "");
+  const [selectedSpeaker, setSelectedSpeaker] = useState(searchParams.get('speaker') || "all");
+  const [selectedSeries, setSelectedSeries] = useState(searchParams.get('series') || "all");
+  const [selectedTag, setSelectedTag] = useState(searchParams.get('tag') || "all");
+  const [showFeatured, setShowFeatured] = useState(searchParams.get('featured') === "true");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   // State for audio player
@@ -252,6 +255,13 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
     
     return () => clearTimeout(timer);
   }, []);
+  
+  // Apply filters when they change and fetch from API
+  useEffect(() => {
+    // This would be the place to call the useSermons hook with the correct parameters
+    // and fetch the filtered data from the API
+    // For now, we're using the sample data
+  }, [selectedSpeaker, selectedSeries, selectedTag, showFeatured, searchQuery, page]);
   
   // Handle sermon playback
   const handlePlaySermon = (sermon: typeof sampleSermons[0]) => {
@@ -346,10 +356,9 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
               {/* Search and filter bar */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70" />
-                  <Input
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70" />                  <Input
                     ref={searchInputRef}
-                    defaultValue={searchParams.search}
+                     defaultValue={searchParams.get('search') || ""}
                     placeholder="Search by title, speaker, topic..."
                     className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/70 w-full"
                   />
@@ -388,7 +397,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                     <SelectValue placeholder="Speaker" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Speakers</SelectItem>
+                    <SelectItem value="all">All Speakers</SelectItem>
                     {getSpeakers().map((speaker) => (
                       <SelectItem key={speaker} value={speaker}>
                         {speaker}
@@ -403,7 +412,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                     <SelectValue placeholder="Series" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Series</SelectItem>
+                    <SelectItem value="all">All Series</SelectItem>
                     {getSeries().map((series) => (
                       <SelectItem key={series} value={series}>
                         {series}
@@ -418,7 +427,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                     <SelectValue placeholder="Topic" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Topics</SelectItem>
+                    <SelectItem value="all">All Topics</SelectItem>
                     {getTags().map((tag) => (
                       <SelectItem key={tag} value={tag}>
                         {tag.charAt(0).toUpperCase() + tag.slice(1)}
@@ -454,7 +463,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                         <SelectValue placeholder="Speaker" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Speakers</SelectItem>
+                        <SelectItem value="all">All Speakers</SelectItem>
                         {getSpeakers().map((speaker) => (
                           <SelectItem key={speaker} value={speaker}>
                             {speaker}
@@ -470,7 +479,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                         <SelectValue placeholder="Series" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Series</SelectItem>
+                        <SelectItem value="all">All Series</SelectItem>
                         {getSeries().map((series) => (
                           <SelectItem key={series} value={series}>
                             {series}
@@ -486,7 +495,7 @@ export default function SermonsPage({ searchParams }: SermonsPageProps) {
                         <SelectValue placeholder="Topic" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Topics</SelectItem>
+                        <SelectItem value="all">All Topics</SelectItem>
                         {getTags().map((tag) => (
                           <SelectItem key={tag} value={tag}>
                             {tag.charAt(0).toUpperCase() + tag.slice(1)}

@@ -46,7 +46,10 @@ export function useSessionRefresh(expiryThresholdMinutes = 5) {
     
     // Set up a timer to check expiry regularly
     const intervalId = setInterval(() => {
-      const newTimeToExpiry = new Date(session.expires as string).getTime() - Date.now();
+      if (!session?.expires) return;
+      
+      const newExpiryTime = new Date(session.expires).getTime();
+      const newTimeToExpiry = newExpiryTime - Date.now();
       
       if (newTimeToExpiry > 0 && newTimeToExpiry < thresholdMs) {
         update();

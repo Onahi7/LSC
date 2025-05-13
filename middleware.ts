@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { withAuth } from "next-auth/middleware"
 
-export default withAuth(
-  async function middleware(req) {
+export default async function middleware(req: NextRequest) {
     const token = await getToken({ req })
     const isAuth = !!token
     const isAuthPage = req.nextUrl.pathname.startsWith("/auth")
@@ -81,13 +80,7 @@ export default withAuth(
         })
       }
     }
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
-  }
-)
+}
 
 // Protect these routes with authentication
 export const config = {
